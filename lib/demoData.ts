@@ -64,10 +64,12 @@ export const DEMO_QUESTIONS: ExamQuestion[] = [
   },
 ];
 
-export function buildDemoQuestions(count: number): ExamQuestion[] {
+export function buildDemoQuestions(count: number, pageFrom = 1, pageTo = 1): ExamQuestion[] {
+  const span = Math.max(1, pageTo - pageFrom + 1);
   const questions: ExamQuestion[] = [];
   for (let i = 0; i < count; i++) {
-    questions.push(DEMO_QUESTIONS[i % DEMO_QUESTIONS.length]);
+    const page = pageFrom + Math.floor((i / count) * span);
+    questions.push({ ...DEMO_QUESTIONS[i % DEMO_QUESTIONS.length], pages: String(page) });
   }
   return questions;
 }

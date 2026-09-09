@@ -51,7 +51,7 @@ export default function ChatView() {
         <div id="chatMain">
           {!apiKey && (
             <div className="demo-banner" id="demoBanner">
-              Modo demo — conecta tu API key de Groq para respuestas reales
+              Modo demo — usa el ícono de llave 🔑 en la parte superior para conectar tu API key de Groq
             </div>
           )}
           <div className="chat-container">

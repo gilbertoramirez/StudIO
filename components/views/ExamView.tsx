@@ -59,11 +59,24 @@ export default function ExamView() {
   const correct = examSubmitted && examQuestions ? examQuestions.filter((q, i) => examAnswers[i] === q.correct).length : 0;
   const pct = examSubmitted && examQuestions ? Math.round((correct / examQuestions.length) * 100) : 0;
 
+  const failedTopics =
+    examSubmitted && examQuestions
+      ? examQuestions
+          .map((q, i) => ({ q, i }))
+          .filter(({ q, i }) => examAnswers[i] !== q.correct && (q.pages || q.topic))
+          .map(({ q }) => ({ pages: q.pages, topic: q.topic }))
+      : [];
+  const uniqueFailedTopics = failedTopics.filter(
+    (t, i, arr) => arr.findIndex((o) => o.pages === t.pages && o.topic === t.topic) === i
+  );
+
   return (
     <section className="view active" id="view-examen">
       <div id="examMain">
         {!apiKey && (
-          <div className="demo-banner">Modo demo — conecta tu API key de Groq para generar preguntas reales sobre tu documento</div>
+          <div className="demo-banner">
+            Modo demo — usa el ícono de llave 🔑 en la parte superior para conectar tu API key de Groq y generar preguntas reales sobre tu documento
+          </div>
         )}
         {apiKey && groqError && examQuestions && (
           <div className="demo-banner" style={{ color: 'var(--danger)' }}>
@@ -115,6 +128,21 @@ export default function ExamView() {
             </div>
           )}
 
+          {examSubmitted && uniqueFailedTopics.length > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-title">Dónde repasar</div>
+              <div className="options">
+                {uniqueFailedTopics.map((t, i) => (
+                  <div key={i} className="option" style={{ cursor: 'default' }}>
+                    <span className="option-letter">📍</span>
+                    {t.topic ? t.topic + ' — ' : ''}
+                    {t.pages ? 'página ' + t.pages : 'revisa esta sección'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {examQuestions?.map((q, qi) => (
             <div className="question" key={qi}>
               <div className="question-num">Pregunta {qi + 1}</div>
@@ -137,6 +165,12 @@ export default function ExamView() {
                 })}
               </div>
               {examSubmitted && q.explanation && <div className="explanation visible">{q.explanation}</div>}
+              {examSubmitted && examAnswers[qi] !== q.correct && (q.pages || q.topic) && (
+                <div className="explanation visible" style={{ color: 'var(--danger)' }}>
+                  📍 Repasa esto {q.topic ? 'en "' + q.topic + '"' : ''}
+                  {q.pages ? (q.topic ? ', página ' : 'en la página ') + q.pages : ''}.
+                </div>
+              )}
             </div>
           ))}
 

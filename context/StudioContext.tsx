@@ -14,6 +14,7 @@ import { queryGroq, verifyGroqApiKey } from '@/lib/groq';
 import { buildDemoQuestions, getDemoResponse } from '@/lib/demoData';
 import { escapeHtml, formatResponse } from '@/lib/format';
 import { extractiveSummary } from '@/lib/summary';
+import { buildLabeledContent } from '@/lib/content';
 
 const DIFFICULTY_LABEL: Record<ExamDifficulty, string> = {
   facil: 'fácil',
@@ -379,11 +380,14 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setExamAnswers({});
     setExamSubmitted(false);
 
-    const context = contentText ? 'Contenido: ' + contentText.substring(0, 6000) : 'Documento: ' + fileName;
+    const labeled = pageTexts.length > 0 ? buildLabeledContent(pageTexts, pageFrom, pageTo) : contentText;
+    const context = labeled
+      ? 'Contenido (cada sección está marcada con [Página N]):\n' + labeled.substring(0, 6000)
+      : 'Documento: ' + fileName;
     const systemPrompt =
       'Genera un examen de opción múltiple en formato JSON basado únicamente en el contenido proporcionado. Devuelve SOLO un array JSON con ' +
       examQuestionCount +
-      ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación). Nivel de dificultad: ' +
+      ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación), pages (el número o rango de página, tal como aparece en las marcas [Página N] del contenido, donde se encuentra la respuesta), topic (título breve, de máximo 6 palabras, del tema o sección al que pertenece la pregunta). Nivel de dificultad: ' +
       DIFFICULTY_LABEL[examDifficulty] +
       '.';
     const { content: result, error } = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
@@ -397,14 +401,16 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
 
-    setExamQuestions(questions && questions.length ? questions.slice(0, examQuestionCount) : buildDemoQuestions(examQuestionCount));
+    setExamQuestions(
+      questions && questions.length ? questions.slice(0, examQuestionCount) : buildDemoQuestions(examQuestionCount, pageFrom, pageTo)
+    );
     setExamSeconds(0);
     stopExamTimer();
     examTimerRef.current = setInterval(() => {
       setExamSeconds((s) => s + 1);
     }, 1000);
     setIsGeneratingExam(false);
-  }, [apiKey, contentText, fileName, pageFrom, pageTo, examQuestionCount, examDifficulty, stopExamTimer]);
+  }, [apiKey, contentText, fileName, pageFrom, pageTo, pageTexts, examQuestionCount, examDifficulty, stopExamTimer]);
 
   const selectOption = useCallback(
     (qi: number, oi: number) => {

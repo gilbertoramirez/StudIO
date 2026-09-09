@@ -21,4 +21,6 @@ export interface ExamQuestion {
   options: string[];
   correct: number;
   explanation: string;
+  pages?: string;
+  topic?: string;
 }

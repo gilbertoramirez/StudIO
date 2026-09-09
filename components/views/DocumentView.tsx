@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useStudio } from '@/context/StudioContext';
 import { formatSize } from '@/lib/format';
+import ApiKeyPanel from '@/components/ApiKeyPanel';
 
 export default function DocumentView() {
   const {
@@ -13,11 +14,8 @@ export default function DocumentView() {
     pageFrom,
     pageTo,
     contentText,
-    apiKey,
     isExtracting,
     extractError,
-    apiKeyStatus,
-    apiKeyError,
     groqError,
     handleFile,
     removeFile,
@@ -26,7 +24,6 @@ export default function DocumentView() {
     setTotalPages,
     setRange,
     setContentText,
-    saveApiKey,
     summaryText,
     isGeneratingSummary,
     generateSummary,
@@ -34,12 +31,7 @@ export default function DocumentView() {
 
   const [dragOver, setDragOver] = useState(false);
   const [apiOpen, setApiOpen] = useState(false);
-  const [apiInput, setApiInput] = useState(apiKey);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setApiInput(apiKey);
-  }, [apiKey]);
 
   return (
     <section className="view active" id="view-documento">
@@ -196,34 +188,7 @@ export default function DocumentView() {
           Configurar API de Groq
         </button>
         <div className={'api-body' + (apiOpen ? ' open' : '')} id="apiBody">
-          <div className="api-row">
-            <input
-              type="password"
-              id="apiKey"
-              placeholder="gsk_xxxxxxxxxxxxxxxx"
-              autoComplete="off"
-              value={apiInput}
-              onChange={(e) => setApiInput(e.target.value)}
-            />
-            <button className="btn btn-sm btn-primary" onClick={() => saveApiKey(apiInput.trim())} disabled={apiKeyStatus === 'checking'}>
-              {apiKeyStatus === 'checking' ? 'Verificando...' : 'Guardar'}
-            </button>
-          </div>
-
-          {apiKeyStatus === 'valid' && (
-            <div className="content-hint" style={{ marginTop: 8, color: 'var(--success)' }}>
-              ✓ Conectado correctamente a Groq.
-            </div>
-          )}
-          {apiKeyStatus === 'invalid' && (
-            <div className="content-hint" style={{ marginTop: 8, color: 'var(--danger)' }}>
-              ✗ No se pudo validar la API key{apiKeyError ? ': ' + apiKeyError : '.'}
-            </div>
-          )}
-
-          <div className="content-hint" style={{ marginTop: 8 }}>
-            Tu API key se guarda localmente en el navegador. Nunca se envía a terceros.
-          </div>
+          <ApiKeyPanel />
         </div>
       </div>
 
