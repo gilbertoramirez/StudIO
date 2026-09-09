@@ -273,11 +273,12 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
       const context = contentText
         ? 'Contenido del documento (pp. ' + pageFrom + '-' + pageTo + '):\n\n' + contentText.substring(0, 8000)
-        : 'Documento: ' + fileName + ', analizando páginas ' + pageFrom + ' a ' + pageTo + '.';
+        : null;
 
-      const systemPrompt =
-        'Eres StudIO, un asistente de estudio. Responde de forma clara y útil basándote en el contenido proporcionado. Usa formato simple con listas cuando sea apropiado.';
-      const userMsg = context + '\n\nPregunta del estudiante: ' + text;
+      const systemPrompt = context
+        ? 'Eres StudIO, un asistente de estudio. Responde ÚNICAMENTE con información que aparezca literalmente en el "Contenido del documento" que te da el usuario a continuación. No uses conocimiento externo ni general, no completes con suposiciones y no inventes datos, nombres, cifras o citas que no estén en ese texto. Si la pregunta no se puede responder con ese contenido, dilo explícitamente (por ejemplo: "Eso no aparece en el rango de páginas cargado") en vez de adivinar. Usa formato simple con listas cuando sea apropiado.'
+        : 'Eres StudIO, un asistente de estudio. Todavía no tienes el texto del documento del usuario. No inventes ni supongas contenido del documento: indica que necesita extraerse el texto en la pestaña Documento antes de poder responder con precisión.';
+      const userMsg = (context ?? 'Documento: ' + fileName + ', sin texto extraído aún para las páginas ' + pageFrom + ' a ' + pageTo + '.') + '\n\nPregunta del estudiante: ' + text;
 
       const { content: aiResponse, error } = await queryGroq(apiKey, systemPrompt, userMsg);
       setGroqError(error);
@@ -292,7 +293,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const generateSummary = useCallback(async () => {
     setIsGeneratingSummary(true);
     const systemPrompt =
-      'Genera un resumen claro y estructurado (con encabezados breves y viñetas) del contenido proporcionado, en español. Basa el resumen únicamente en ese contenido.';
+      'Genera un resumen claro y estructurado (con encabezados breves y viñetas) en español, usando ÚNICAMENTE la información que aparece literalmente en el contenido proporcionado. No agregues datos, ejemplos ni conocimiento externo que no estén en ese texto.';
     const { content: result, error } = contentText
       ? await queryGroq(apiKey, systemPrompt, contentText.substring(0, 6000))
       : { content: null, error: null };
@@ -305,7 +306,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setIsGeneratingPlan(true);
     const context = contentText ? 'Contenido: ' + contentText.substring(0, 6000) : 'Documento: ' + fileName;
     const systemPrompt =
-      'Genera un plan de estudio en formato JSON. Devuelve SOLO un array JSON con objetos que tengan: title, pages, duration (en minutos), objectives (string). Entre 4 y 6 sesiones.';
+      'Genera un plan de estudio en formato JSON basado ÚNICAMENTE en el contenido proporcionado, sin usar conocimiento externo. Devuelve SOLO un array JSON con objetos que tengan: title, pages, duration (en minutos), objectives (string). Entre 4 y 6 sesiones.';
     const { content: result, error } = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
     setGroqError(error);
 
@@ -385,7 +386,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ? 'Contenido (cada sección está marcada con [Página N]; puede ser una muestra representativa de todo el rango de páginas):\n' + labeled
       : 'Documento: ' + fileName;
     const systemPrompt =
-      'Genera un examen de opción múltiple en formato JSON basado únicamente en el contenido proporcionado. Devuelve SOLO un array JSON con ' +
+      'Genera un examen de opción múltiple en formato JSON basado ÚNICAMENTE en el contenido proporcionado, sin usar conocimiento externo ni inventar datos que no estén en ese texto. Devuelve SOLO un array JSON con ' +
       examQuestionCount +
       ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación), pages (el número o rango de página, tal como aparece en las marcas [Página N] del contenido, donde se encuentra la respuesta), topic (título breve, de máximo 6 palabras, del tema o sección al que pertenece la pregunta). Nivel de dificultad: ' +
       DIFFICULTY_LABEL[examDifficulty] +
