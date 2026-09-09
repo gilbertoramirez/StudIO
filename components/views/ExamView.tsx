@@ -35,6 +35,12 @@ export default function ExamView() {
     setTab,
     apiKey,
     groqError,
+    totalPages,
+    pageFrom,
+    pageTo,
+    setPageFrom,
+    setPageTo,
+    setRange,
   } = useStudio();
 
   if (!hasFile) {
@@ -83,8 +89,40 @@ export default function ExamView() {
             Groq no pudo generar el examen ({groqError}). Se muestran preguntas de ejemplo, no del documento.
           </div>
         )}
+        <div className="range-row" style={{ marginTop: 0, marginBottom: 16 }}>
+          <div className="range-field">
+            <label htmlFor="examPageFrom">Desde página</label>
+            <input
+              type="number"
+              id="examPageFrom"
+              min={1}
+              max={totalPages}
+              value={pageFrom}
+              disabled={isGeneratingExam}
+              onChange={(e) => setPageFrom(parseInt(e.target.value, 10) || 1)}
+            />
+          </div>
+          <div className="range-field">
+            <label htmlFor="examPageTo">Hasta página</label>
+            <input
+              type="number"
+              id="examPageTo"
+              min={1}
+              max={totalPages}
+              value={pageTo}
+              disabled={isGeneratingExam}
+              onChange={(e) => setPageTo(parseInt(e.target.value, 10) || 1)}
+            />
+          </div>
+          <button className="btn btn-sm btn-outline" disabled={isGeneratingExam} onClick={() => setRange(1, totalPages)}>
+            Todo el documento
+          </button>
+        </div>
+
         <div className="exam-header">
-          <h2>Examen de simulación</h2>
+          <h2>
+            Examen de simulación <span style={{ color: 'var(--ink-2)', fontWeight: 400, fontSize: '.8rem' }}>(pp. {pageFrom}–{pageTo})</span>
+          </h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
             <select
               value={examQuestionCount}

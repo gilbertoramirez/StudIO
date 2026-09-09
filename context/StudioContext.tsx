@@ -14,7 +14,7 @@ import { queryGroq, verifyGroqApiKey } from '@/lib/groq';
 import { buildDemoQuestions, getDemoResponse } from '@/lib/demoData';
 import { escapeHtml, formatResponse } from '@/lib/format';
 import { extractiveSummary } from '@/lib/summary';
-import { buildLabeledContent } from '@/lib/content';
+import { buildLabeledContentForBudget } from '@/lib/content';
 
 const DIFFICULTY_LABEL: Record<ExamDifficulty, string> = {
   facil: 'fácil',
@@ -380,9 +380,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setExamAnswers({});
     setExamSubmitted(false);
 
-    const labeled = pageTexts.length > 0 ? buildLabeledContent(pageTexts, pageFrom, pageTo) : contentText;
+    const labeled = pageTexts.length > 0 ? buildLabeledContentForBudget(pageTexts, pageFrom, pageTo, 8000) : contentText.substring(0, 8000);
     const context = labeled
-      ? 'Contenido (cada sección está marcada con [Página N]):\n' + labeled.substring(0, 6000)
+      ? 'Contenido (cada sección está marcada con [Página N]; puede ser una muestra representativa de todo el rango de páginas):\n' + labeled
       : 'Documento: ' + fileName;
     const systemPrompt =
       'Genera un examen de opción múltiple en formato JSON basado únicamente en el contenido proporcionado. Devuelve SOLO un array JSON con ' +
