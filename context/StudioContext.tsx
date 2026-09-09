@@ -9,10 +9,17 @@ import {
   useRef,
   useState,
 } from 'react';
-import type { ChatMessage, ExamQuestion, PlanSession, Tab, Theme } from '@/types/studio';
+import type { ChatMessage, ExamDifficulty, ExamQuestion, PlanSession, Tab, Theme } from '@/types/studio';
 import { queryGroq } from '@/lib/groq';
-import { DEMO_QUESTIONS, getDemoResponse } from '@/lib/demoData';
+import { buildDemoQuestions, getDemoResponse } from '@/lib/demoData';
 import { escapeHtml, formatResponse } from '@/lib/format';
+import { extractiveSummary } from '@/lib/summary';
+
+const DIFFICULTY_LABEL: Record<ExamDifficulty, string> = {
+  facil: 'fácil',
+  media: 'media',
+  dificil: 'difícil',
+};
 
 interface StudioContextValue {
   tab: Tab;
@@ -28,6 +35,8 @@ interface StudioContextValue {
   pageTo: number;
   contentText: string;
   apiKey: string;
+  isExtracting: boolean;
+  extractError: string | null;
 
   handleFile: (file: File) => void;
   removeFile: () => void;
@@ -42,6 +51,10 @@ interface StudioContextValue {
   isTyping: boolean;
   sendMessage: (text: string) => Promise<void>;
 
+  summaryText: string | null;
+  isGeneratingSummary: boolean;
+  generateSummary: () => Promise<void>;
+
   planSessions: PlanSession[] | null;
   planChecked: Set<number>;
   isGeneratingPlan: boolean;
@@ -53,6 +66,10 @@ interface StudioContextValue {
   examSubmitted: boolean;
   examSeconds: number;
   isGeneratingExam: boolean;
+  examQuestionCount: number;
+  setExamQuestionCount: (n: number) => void;
+  examDifficulty: ExamDifficulty;
+  setExamDifficulty: (d: ExamDifficulty) => void;
   generateExam: () => Promise<void>;
   selectOption: (qi: number, oi: number) => void;
   submitExam: () => void;
@@ -72,9 +89,15 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [pageTo, setPageToState] = useState(0);
   const [contentText, setContentText] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [pageTexts, setPageTexts] = useState<string[]>([]);
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+
+  const [summaryText, setSummaryText] = useState<string | null>(null);
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const [planSessions, setPlanSessions] = useState<PlanSession[] | null>(null);
   const [planChecked, setPlanChecked] = useState<Set<number>>(new Set());
@@ -85,6 +108,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [examSeconds, setExamSeconds] = useState(0);
   const [isGeneratingExam, setIsGeneratingExam] = useState(false);
+  const [examQuestionCount, setExamQuestionCount] = useState(5);
+  const [examDifficulty, setExamDifficulty] = useState<ExamDifficulty>('media');
   const examTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -118,21 +143,43 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setFile(f);
     setFileName(f.name);
     setFileSize(f.size);
+    setPageTexts([]);
+    setContentText('');
+    setSummaryText(null);
+    setExtractError(null);
+    setIsExtracting(true);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result;
-      if (!(result instanceof ArrayBuffer)) return;
-      const bytes = new Uint8Array(result);
-      const text = new TextDecoder('latin1').decode(bytes);
-      const matches = text.match(/\/Type\s*\/Page[^s]/g);
-      const pages = matches ? matches.length : 20;
-      setTotalPages(pages);
-      setPageFromState(1);
-      setPageToState(pages);
-    };
-    reader.readAsArrayBuffer(f);
+    (async () => {
+      try {
+        const { extractPdfPageTexts } = await import('@/lib/pdf');
+        const texts = await extractPdfPageTexts(f);
+        const pages = texts.length || 1;
+        setPageTexts(texts);
+        setTotalPages(pages);
+        setPageFromState(1);
+        setPageToState(pages);
+        if (!texts.some((t) => t.length > 0)) {
+          setExtractError(
+            'No se pudo extraer texto de este PDF (parece un documento escaneado). Puedes escribir el contenido manualmente abajo.'
+          );
+        }
+      } catch {
+        setTotalPages(1);
+        setPageFromState(1);
+        setPageToState(1);
+        setExtractError('No se pudo leer el PDF. Puedes escribir el contenido manualmente abajo.');
+      } finally {
+        setIsExtracting(false);
+      }
+    })();
   }, []);
+
+  useEffect(() => {
+    if (pageTexts.length === 0) return;
+    const from = Math.max(1, Math.min(pageFrom, pageTexts.length));
+    const to = Math.max(from, Math.min(pageTo || pageTexts.length, pageTexts.length));
+    setContentText(pageTexts.slice(from - 1, to).join('\n\n'));
+  }, [pageFrom, pageTo, pageTexts]);
 
   const removeFile = useCallback(() => {
     setFile(null);
@@ -142,6 +189,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setPageFromState(1);
     setPageToState(0);
     setContentText('');
+    setPageTexts([]);
+    setExtractError(null);
+    setSummaryText(null);
   }, []);
 
   const setPageFrom = useCallback(
@@ -208,9 +258,18 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     [apiKey, contentText, fileName, pageFrom, pageTo]
   );
 
+  const generateSummary = useCallback(async () => {
+    setIsGeneratingSummary(true);
+    const systemPrompt =
+      'Genera un resumen claro y estructurado (con encabezados breves y viñetas) del contenido proporcionado, en español. Basa el resumen únicamente en ese contenido.';
+    const result = contentText ? await queryGroq(apiKey, systemPrompt, contentText.substring(0, 6000)) : null;
+    setSummaryText(result ? result.trim() : extractiveSummary(contentText));
+    setIsGeneratingSummary(false);
+  }, [apiKey, contentText]);
+
   const generatePlan = useCallback(async () => {
     setIsGeneratingPlan(true);
-    const context = contentText ? 'Contenido: ' + contentText.substring(0, 2000) : 'Documento: ' + fileName;
+    const context = contentText ? 'Contenido: ' + contentText.substring(0, 6000) : 'Documento: ' + fileName;
     const systemPrompt =
       'Genera un plan de estudio en formato JSON. Devuelve SOLO un array JSON con objetos que tengan: title, pages, duration (en minutos), objectives (string). Entre 4 y 6 sesiones.';
     const result = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
@@ -286,9 +345,13 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setExamAnswers({});
     setExamSubmitted(false);
 
-    const context = contentText ? 'Contenido: ' + contentText.substring(0, 2000) : 'Documento: ' + fileName;
+    const context = contentText ? 'Contenido: ' + contentText.substring(0, 6000) : 'Documento: ' + fileName;
     const systemPrompt =
-      'Genera un examen de opción múltiple en formato JSON. Devuelve SOLO un array JSON con 5 objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación).';
+      'Genera un examen de opción múltiple en formato JSON basado únicamente en el contenido proporcionado. Devuelve SOLO un array JSON con ' +
+      examQuestionCount +
+      ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación). Nivel de dificultad: ' +
+      DIFFICULTY_LABEL[examDifficulty] +
+      '.';
     const result = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
 
     let questions: ExamQuestion[] | null = null;
@@ -299,14 +362,14 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       } catch {}
     }
 
-    setExamQuestions(questions || DEMO_QUESTIONS);
+    setExamQuestions(questions && questions.length ? questions.slice(0, examQuestionCount) : buildDemoQuestions(examQuestionCount));
     setExamSeconds(0);
     stopExamTimer();
     examTimerRef.current = setInterval(() => {
       setExamSeconds((s) => s + 1);
     }, 1000);
     setIsGeneratingExam(false);
-  }, [apiKey, contentText, fileName, pageFrom, pageTo, stopExamTimer]);
+  }, [apiKey, contentText, fileName, pageFrom, pageTo, examQuestionCount, examDifficulty, stopExamTimer]);
 
   const selectOption = useCallback(
     (qi: number, oi: number) => {
@@ -345,6 +408,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     pageTo,
     contentText,
     apiKey,
+    isExtracting,
+    extractError,
 
     handleFile,
     removeFile,
@@ -359,6 +424,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     isTyping,
     sendMessage,
 
+    summaryText,
+    isGeneratingSummary,
+    generateSummary,
+
     planSessions,
     planChecked,
     isGeneratingPlan,
@@ -370,6 +439,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     examSubmitted,
     examSeconds,
     isGeneratingExam,
+    examQuestionCount,
+    setExamQuestionCount,
+    examDifficulty,
+    setExamDifficulty,
     generateExam,
     selectOption,
     submitExam,

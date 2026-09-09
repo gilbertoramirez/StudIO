@@ -1,8 +1,15 @@
 'use client';
 
 import { useStudio } from '@/context/StudioContext';
+import type { ExamDifficulty } from '@/types/studio';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
+const QUESTION_COUNT_OPTIONS = [3, 5, 8, 10];
+const DIFFICULTY_OPTIONS: { value: ExamDifficulty; label: string }[] = [
+  { value: 'facil', label: 'Fácil' },
+  { value: 'media', label: 'Media' },
+  { value: 'dificil', label: 'Difícil' },
+];
 
 function formatTimer(totalSeconds: number): string {
   const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
@@ -18,6 +25,10 @@ export default function ExamView() {
     examSubmitted,
     examSeconds,
     isGeneratingExam,
+    examQuestionCount,
+    setExamQuestionCount,
+    examDifficulty,
+    setExamDifficulty,
     generateExam,
     selectOption,
     submitExam,
@@ -51,7 +62,31 @@ export default function ExamView() {
       <div id="examMain">
         <div className="exam-header">
           <h2>Examen de simulación</h2>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <select
+              value={examQuestionCount}
+              onChange={(e) => setExamQuestionCount(parseInt(e.target.value, 10))}
+              disabled={isGeneratingExam}
+              title="Cantidad de preguntas"
+            >
+              {QUESTION_COUNT_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} preguntas
+                </option>
+              ))}
+            </select>
+            <select
+              value={examDifficulty}
+              onChange={(e) => setExamDifficulty(e.target.value as ExamDifficulty)}
+              disabled={isGeneratingExam}
+              title="Dificultad"
+            >
+              {DIFFICULTY_OPTIONS.map((d) => (
+                <option key={d.value} value={d.value}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
             <span className="exam-timer" id="examTimer">
               {formatTimer(examSeconds)}
             </span>

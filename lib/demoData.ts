@@ -64,6 +64,14 @@ export const DEMO_QUESTIONS: ExamQuestion[] = [
   },
 ];
 
+export function buildDemoQuestions(count: number): ExamQuestion[] {
+  const questions: ExamQuestion[] = [];
+  for (let i = 0; i < count; i++) {
+    questions.push(DEMO_QUESTIONS[i % DEMO_QUESTIONS.length]);
+  }
+  return questions;
+}
+
 export function getDemoResponse(question: string, fileName: string, pageFrom: number, pageTo: number): string {
   const lower = question.toLowerCase();
 

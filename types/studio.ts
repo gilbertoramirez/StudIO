@@ -14,6 +14,8 @@ export interface PlanSession {
   objectives: string;
 }
 
+export type ExamDifficulty = 'facil' | 'media' | 'dificil';
+
 export interface ExamQuestion {
   text: string;
   options: string[];

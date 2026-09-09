@@ -14,6 +14,8 @@ export default function DocumentView() {
     pageTo,
     contentText,
     apiKey,
+    isExtracting,
+    extractError,
     handleFile,
     removeFile,
     setPageFrom,
@@ -22,6 +24,9 @@ export default function DocumentView() {
     setRange,
     setContentText,
     saveApiKey,
+    summaryText,
+    isGeneratingSummary,
+    generateSummary,
   } = useStudio();
 
   const [dragOver, setDragOver] = useState(false);
@@ -85,6 +90,18 @@ export default function DocumentView() {
         </div>
       )}
 
+      {hasFile && isExtracting && (
+        <div className="content-hint" style={{ marginTop: 16 }}>
+          Extrayendo texto del PDF…
+        </div>
+      )}
+
+      {hasFile && extractError && (
+        <div className="content-hint" style={{ marginTop: 16, color: 'var(--danger)' }}>
+          {extractError}
+        </div>
+      )}
+
       {hasFile && (
         <div id="rangeSection">
           <div className="range-row">
@@ -139,16 +156,28 @@ export default function DocumentView() {
 
       {hasFile && (
         <div className="content-area" id="contentSection">
-          <label htmlFor="contentText">Contenido para analizar</label>
+          <label htmlFor="contentText">Texto extraído (páginas {pageFrom}–{pageTo})</label>
           <textarea
             id="contentText"
-            placeholder="Pega aquí el texto de las páginas seleccionadas para que la IA pueda analizarlo..."
+            placeholder="El texto de las páginas seleccionadas se extrae automáticamente del PDF. Si el PDF es un escaneo, escríbelo aquí manualmente."
             value={contentText}
             onChange={(e) => setContentText(e.target.value)}
           />
           <div className="content-hint">
-            Copia el texto relevante de tu PDF y pégalo aquí. Esto permite el análisis incluso sin conexión al API.
+            Este texto se extrae automáticamente de tu PDF según el rango de páginas elegido y es la base para el chat, el plan de estudio y el examen. Puedes editarlo si hace falta.
           </div>
+        </div>
+      )}
+
+      {hasFile && contentText && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div className="card-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+            <span>Resumen</span>
+            <button className="btn btn-sm btn-primary" onClick={() => void generateSummary()} disabled={isGeneratingSummary}>
+              {isGeneratingSummary ? 'Generando...' : summaryText ? 'Regenerar resumen' : 'Generar resumen'}
+            </button>
+          </div>
+          {summaryText && <div style={{ whiteSpace: 'pre-wrap', fontSize: '.875rem', lineHeight: 1.6 }}>{summaryText}</div>}
         </div>
       )}
 
