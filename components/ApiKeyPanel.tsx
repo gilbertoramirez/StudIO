@@ -39,6 +39,11 @@ export default function ApiKeyPanel() {
           ✗ No se pudo validar la API key{apiKeyError ? ': ' + apiKeyError : '.'}
         </div>
       )}
+      {apiKeyStatus === 'unverified' && (
+        <div className="content-hint" style={{ marginTop: 8, color: 'var(--accent)' }}>
+          ⚠ No se pudo confirmar la conexión, pero la key se guardó y se usará al generar contenido.{apiKeyError ? ' ' + apiKeyError : ''}
+        </div>
+      )}
 
       <div className="content-hint" style={{ marginTop: 8 }}>
         Tu API key se guarda localmente en el navegador. Nunca se envía a terceros.

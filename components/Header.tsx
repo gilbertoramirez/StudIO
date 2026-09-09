@@ -20,7 +20,14 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, [apiOpen]);
 
-  const keyColor = apiKeyStatus === 'valid' ? 'var(--success)' : apiKeyStatus === 'invalid' ? 'var(--danger)' : undefined;
+  const keyColor =
+    apiKeyStatus === 'valid'
+      ? 'var(--success)'
+      : apiKeyStatus === 'invalid'
+        ? 'var(--danger)'
+        : apiKeyStatus === 'unverified'
+          ? 'var(--accent)'
+          : undefined;
 
   return (
     <header className="header">

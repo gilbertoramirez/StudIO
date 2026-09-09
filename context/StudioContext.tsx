@@ -38,7 +38,7 @@ interface StudioContextValue {
   apiKey: string;
   isExtracting: boolean;
   extractError: string | null;
-  apiKeyStatus: 'idle' | 'checking' | 'valid' | 'invalid';
+  apiKeyStatus: 'idle' | 'checking' | 'valid' | 'invalid' | 'unverified';
   apiKeyError: string | null;
   groqError: string | null;
 
@@ -96,7 +96,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [pageTexts, setPageTexts] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
-  const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid' | 'unverified'>('idle');
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
   const [groqError, setGroqError] = useState<string | null>(null);
 
@@ -134,7 +134,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     if (storedKey) {
       setApiKeyStatus('checking');
       void verifyGroqApiKey(storedKey).then((result) => {
-        setApiKeyStatus(result.ok ? 'valid' : 'invalid');
+        setApiKeyStatus(result.status);
         setApiKeyError(result.error);
       });
     }
@@ -260,7 +260,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setApiKeyStatus('checking');
     setApiKeyError(null);
     void verifyGroqApiKey(key).then((result) => {
-      setApiKeyStatus(result.ok ? 'valid' : 'invalid');
+      setApiKeyStatus(result.status);
       setApiKeyError(result.error);
     });
   }, []);
