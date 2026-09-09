@@ -10,7 +10,7 @@ import {
   useState,
 } from 'react';
 import type { ChatMessage, ExamDifficulty, ExamQuestion, PlanSession, Tab, Theme } from '@/types/studio';
-import { queryGroq } from '@/lib/groq';
+import { queryGroq, verifyGroqApiKey } from '@/lib/groq';
 import { buildDemoQuestions, getDemoResponse } from '@/lib/demoData';
 import { escapeHtml, formatResponse } from '@/lib/format';
 import { extractiveSummary } from '@/lib/summary';
@@ -37,6 +37,9 @@ interface StudioContextValue {
   apiKey: string;
   isExtracting: boolean;
   extractError: string | null;
+  apiKeyStatus: 'idle' | 'checking' | 'valid' | 'invalid';
+  apiKeyError: string | null;
+  groqError: string | null;
 
   handleFile: (file: File) => void;
   removeFile: () => void;
@@ -92,6 +95,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
   const [pageTexts, setPageTexts] = useState<string[]>([]);
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractError, setExtractError] = useState<string | null>(null);
+  const [apiKeyStatus, setApiKeyStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+  const [groqError, setGroqError] = useState<string | null>(null);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -119,9 +125,18 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     } catch {}
     const initial = stored ?? (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
     setTheme(initial as Theme);
+    let storedKey = '';
     try {
-      setApiKey(localStorage.getItem('studio_key') || '');
+      storedKey = localStorage.getItem('studio_key') || '';
     } catch {}
+    setApiKey(storedKey);
+    if (storedKey) {
+      setApiKeyStatus('checking');
+      void verifyGroqApiKey(storedKey).then((result) => {
+        setApiKeyStatus(result.ok ? 'valid' : 'invalid');
+        setApiKeyError(result.error);
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -230,9 +245,23 @@ export function StudioProvider({ children }: { children: ReactNode }) {
 
   const saveApiKey = useCallback((key: string) => {
     setApiKey(key);
+    setGroqError(null);
     try {
       localStorage.setItem('studio_key', key);
     } catch {}
+
+    if (!key) {
+      setApiKeyStatus('idle');
+      setApiKeyError(null);
+      return;
+    }
+
+    setApiKeyStatus('checking');
+    setApiKeyError(null);
+    void verifyGroqApiKey(key).then((result) => {
+      setApiKeyStatus(result.ok ? 'valid' : 'invalid');
+      setApiKeyError(result.error);
+    });
   }, []);
 
   const sendMessage = useCallback(
@@ -249,7 +278,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
         'Eres StudIO, un asistente de estudio. Responde de forma clara y útil basándote en el contenido proporcionado. Usa formato simple con listas cuando sea apropiado.';
       const userMsg = context + '\n\nPregunta del estudiante: ' + text;
 
-      const aiResponse = await queryGroq(apiKey, systemPrompt, userMsg);
+      const { content: aiResponse, error } = await queryGroq(apiKey, systemPrompt, userMsg);
+      setGroqError(error);
       setIsTyping(false);
 
       const html = aiResponse ? formatResponse(aiResponse) : getDemoResponse(text, fileName, pageFrom, pageTo);
@@ -262,7 +292,10 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     setIsGeneratingSummary(true);
     const systemPrompt =
       'Genera un resumen claro y estructurado (con encabezados breves y viñetas) del contenido proporcionado, en español. Basa el resumen únicamente en ese contenido.';
-    const result = contentText ? await queryGroq(apiKey, systemPrompt, contentText.substring(0, 6000)) : null;
+    const { content: result, error } = contentText
+      ? await queryGroq(apiKey, systemPrompt, contentText.substring(0, 6000))
+      : { content: null, error: null };
+    setGroqError(error);
     setSummaryText(result ? result.trim() : extractiveSummary(contentText));
     setIsGeneratingSummary(false);
   }, [apiKey, contentText]);
@@ -272,7 +305,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     const context = contentText ? 'Contenido: ' + contentText.substring(0, 6000) : 'Documento: ' + fileName;
     const systemPrompt =
       'Genera un plan de estudio en formato JSON. Devuelve SOLO un array JSON con objetos que tengan: title, pages, duration (en minutos), objectives (string). Entre 4 y 6 sesiones.';
-    const result = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
+    const { content: result, error } = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
+    setGroqError(error);
 
     let sessions: PlanSession[] | null = null;
     if (result) {
@@ -352,7 +386,8 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación). Nivel de dificultad: ' +
       DIFFICULTY_LABEL[examDifficulty] +
       '.';
-    const result = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
+    const { content: result, error } = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
+    setGroqError(error);
 
     let questions: ExamQuestion[] | null = null;
     if (result) {
@@ -410,6 +445,9 @@ export function StudioProvider({ children }: { children: ReactNode }) {
     apiKey,
     isExtracting,
     extractError,
+    apiKeyStatus,
+    apiKeyError,
+    groqError,
 
     handleFile,
     removeFile,

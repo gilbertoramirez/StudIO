@@ -33,6 +33,8 @@ export default function ExamView() {
     selectOption,
     submitExam,
     setTab,
+    apiKey,
+    groqError,
   } = useStudio();
 
   if (!hasFile) {
@@ -60,6 +62,14 @@ export default function ExamView() {
   return (
     <section className="view active" id="view-examen">
       <div id="examMain">
+        {!apiKey && (
+          <div className="demo-banner">Modo demo — conecta tu API key de Groq para generar preguntas reales sobre tu documento</div>
+        )}
+        {apiKey && groqError && examQuestions && (
+          <div className="demo-banner" style={{ color: 'var(--danger)' }}>
+            Groq no pudo generar el examen ({groqError}). Se muestran preguntas de ejemplo, no del documento.
+          </div>
+        )}
         <div className="exam-header">
           <h2>Examen de simulación</h2>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

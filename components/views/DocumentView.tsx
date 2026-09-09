@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStudio } from '@/context/StudioContext';
 import { formatSize } from '@/lib/format';
 
@@ -16,6 +16,9 @@ export default function DocumentView() {
     apiKey,
     isExtracting,
     extractError,
+    apiKeyStatus,
+    apiKeyError,
+    groqError,
     handleFile,
     removeFile,
     setPageFrom,
@@ -33,6 +36,10 @@ export default function DocumentView() {
   const [apiOpen, setApiOpen] = useState(false);
   const [apiInput, setApiInput] = useState(apiKey);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setApiInput(apiKey);
+  }, [apiKey]);
 
   return (
     <section className="view active" id="view-documento">
@@ -198,15 +205,33 @@ export default function DocumentView() {
               value={apiInput}
               onChange={(e) => setApiInput(e.target.value)}
             />
-            <button className="btn btn-sm btn-primary" onClick={() => saveApiKey(apiInput.trim())}>
-              Guardar
+            <button className="btn btn-sm btn-primary" onClick={() => saveApiKey(apiInput.trim())} disabled={apiKeyStatus === 'checking'}>
+              {apiKeyStatus === 'checking' ? 'Verificando...' : 'Guardar'}
             </button>
           </div>
+
+          {apiKeyStatus === 'valid' && (
+            <div className="content-hint" style={{ marginTop: 8, color: 'var(--success)' }}>
+              ✓ Conectado correctamente a Groq.
+            </div>
+          )}
+          {apiKeyStatus === 'invalid' && (
+            <div className="content-hint" style={{ marginTop: 8, color: 'var(--danger)' }}>
+              ✗ No se pudo validar la API key{apiKeyError ? ': ' + apiKeyError : '.'}
+            </div>
+          )}
+
           <div className="content-hint" style={{ marginTop: 8 }}>
             Tu API key se guarda localmente en el navegador. Nunca se envía a terceros.
           </div>
         </div>
       </div>
+
+      {groqError && (
+        <div className="content-hint" style={{ marginTop: 12, color: 'var(--danger)' }}>
+          Groq no pudo generar la respuesta ({groqError}). Se usó el modo demo como respaldo.
+        </div>
+      )}
     </section>
   );
 }
