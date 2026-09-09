@@ -11,7 +11,7 @@ const SUGGESTIONS = [
 ];
 
 export default function ChatView() {
-  const { hasFile, apiKey, messages, isTyping, sendMessage, setTab } = useStudio();
+  const { hasFile, apiKey, messages, isTyping, sendMessage, setTab, groqError } = useStudio();
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -52,6 +52,11 @@ export default function ChatView() {
           {!apiKey && (
             <div className="demo-banner" id="demoBanner">
               Modo demo — usa el ícono de llave 🔑 en la parte superior para conectar tu API key de Groq
+            </div>
+          )}
+          {apiKey && groqError && (
+            <div className="demo-banner" style={{ color: 'var(--danger)' }}>
+              Groq no pudo responder ({groqError}). Se usó una respuesta de ejemplo.
             </div>
           )}
           <div className="chat-container">

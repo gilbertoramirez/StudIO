@@ -272,7 +272,7 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       setIsTyping(true);
 
       const context = contentText
-        ? 'Contenido del documento (pp. ' + pageFrom + '-' + pageTo + '):\n\n' + contentText
+        ? 'Contenido del documento (pp. ' + pageFrom + '-' + pageTo + '):\n\n' + contentText.substring(0, 8000)
         : 'Documento: ' + fileName + ', analizando páginas ' + pageFrom + ' a ' + pageTo + '.';
 
       const systemPrompt =
