@@ -391,16 +391,26 @@ export function StudioProvider({ children }: { children: ReactNode }) {
       ' objetos, cada uno con: text (pregunta), options (array de 4 strings), correct (indice 0-3 de la respuesta correcta), explanation (breve explicación), pages (el número o rango de página, tal como aparece en las marcas [Página N] del contenido, donde se encuentra la respuesta), topic (título breve, de máximo 6 palabras, del tema o sección al que pertenece la pregunta). Nivel de dificultad: ' +
       DIFFICULTY_LABEL[examDifficulty] +
       '.';
-    const { content: result, error } = await queryGroq(apiKey, systemPrompt, context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.');
-    setGroqError(error);
+    const maxTokens = Math.min(8000, 500 + examQuestionCount * 300);
+    const { content: result, error } = await queryGroq(
+      apiKey,
+      systemPrompt,
+      context + '. Páginas ' + pageFrom + ' a ' + pageTo + '.',
+      maxTokens
+    );
 
     let questions: ExamQuestion[] | null = null;
+    let parseError: string | null = null;
     if (result) {
       try {
         const match = result.match(/\[[\s\S]*\]/);
         if (match) questions = JSON.parse(match[0]);
-      } catch {}
+        else parseError = 'La respuesta de Groq no tenía el formato JSON esperado.';
+      } catch {
+        parseError = 'La respuesta de Groq llegó incompleta o no se pudo interpretar (intenta con menos preguntas).';
+      }
     }
+    setGroqError(error ?? parseError);
 
     setExamQuestions(
       questions && questions.length ? questions.slice(0, examQuestionCount) : buildDemoQuestions(examQuestionCount, pageFrom, pageTo)

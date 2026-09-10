@@ -23,7 +23,7 @@ export interface GroqResult {
   error: string | null;
 }
 
-export async function queryGroq(apiKey: string, systemPrompt: string, userMsg: string): Promise<GroqResult> {
+export async function queryGroq(apiKey: string, systemPrompt: string, userMsg: string, maxTokens = 3000): Promise<GroqResult> {
   if (!apiKey) return { content: null, error: null };
 
   let lastError: string | null = null;
@@ -43,6 +43,7 @@ export async function queryGroq(apiKey: string, systemPrompt: string, userMsg: s
             { role: 'user', content: userMsg },
           ],
           temperature: 0.7,
+          max_tokens: maxTokens,
         }),
       });
       const data = await res.json().catch(() => null);

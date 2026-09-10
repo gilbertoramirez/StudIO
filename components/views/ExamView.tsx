@@ -4,7 +4,7 @@ import { useStudio } from '@/context/StudioContext';
 import type { ExamDifficulty } from '@/types/studio';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
-const QUESTION_COUNT_OPTIONS = [3, 5, 8, 10];
+const QUESTION_COUNT_OPTIONS = [3, 5, 8, 10, 15, 20, 25];
 const DIFFICULTY_OPTIONS: { value: ExamDifficulty; label: string }[] = [
   { value: 'facil', label: 'Fácil' },
   { value: 'media', label: 'Media' },
